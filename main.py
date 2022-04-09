@@ -19,8 +19,8 @@ try:
 except ImportError:
     import Image
 
-import easyocr
-reader = easyocr.Reader(['en','ur']) 
+# import easyocr
+# reader = easyocr.Reader(['en','ur']) 
 
 def ocr_sections(section):
     custom_config = r'--oem 3 --psm 6'
@@ -35,13 +35,13 @@ def ocr_sections(section):
     ocr_result = "".join(ocr_result)     
     return ocr_result
 
-def urdu_ocr(img):
-    ocr_result = reader.readtext(img)
-    urdu_data = []
-    for i in ocr_result:
-        urdu_data.append(i[1])
-    urdu_data = " ".join(urdu_data)
-    return urdu_data
+# def urdu_ocr(img):
+#     ocr_result = reader.readtext(img)
+#     urdu_data = []
+#     for i in ocr_result:
+#         urdu_data.append(i[1])
+#     urdu_data = " ".join(urdu_data)
+#     return urdu_data
 
 #load fastapi
 app = FastAPI()
@@ -126,11 +126,14 @@ async def create_upload_file(file: UploadFile = File(...)):
         address = gray[49:154, 198:493]
         print(address)
         expiry_date = gray[303:338,152:264]
-        address_text = urdu_ocr(address)
-        print(address_text)
-        expiry_date_text = urdu_ocr(expiry_date)
+        # address_text = urdu_ocr(address)
+        # print(address_text)
+        # expiry_date_text = urdu_ocr(expiry_date)
 
+        # return {
+        #     "expiry_date":expiry_date_text,
+        #     "address":address_text
+        # }
         return {
-            "expiry_date":expiry_date_text,
-            "address":address_text
+            "data":"null",
         }
