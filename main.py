@@ -25,8 +25,8 @@ except ImportError:
 
 print(json.__version__)
 
-import easyocr
-reader = easyocr.Reader(['en','ur'])
+# import easyocr
+# reader = easyocr.Reader(['en','ur'])
 
 
 def save_img(image):
@@ -158,7 +158,8 @@ async def create_upload_file(file: UploadFile = File(...)):
 
     elif output_label == 'sim_back':
         address = gray[111:147, 165:360]
-        address_text = easy_urdu_ocr(address)
+        save_img(address)
+        address_text = urdu_ocr('pics/pic.jpg')
         delete_extra_files()
 
         return {
@@ -167,9 +168,9 @@ async def create_upload_file(file: UploadFile = File(...)):
 
     elif output_label == 'back':
         address = gray[49:154, 198:493]
-        print(address)
+        save_img(address)
         expiry_date = gray[303:338,152:264]
-        address_text = easy_urdu_ocr(address)
+        address_text = urdu_ocr('pics/pic.jpg')
         print(address_text)
         expiry_date_text = ocr_sections(expiry_date)
         delete_extra_files()
