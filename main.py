@@ -6,7 +6,10 @@ from pydantic import BaseModel
 from fastapi import File
 from fastapi import UploadFile
 import cv2
+import os
+import requests
 import re
+import json
 import numpy as np
 import tensorflow as tf
 import pandas as pd
@@ -20,8 +23,22 @@ try:
 except ImportError:
     import Image
 
+print(json.__version__)
+
 import easyocr
-reader = easyocr.Reader(['en','ur']) 
+reader = easyocr.Reader(['en','ur'])
+
+
+def save_img(image):
+    data = Image.fromarray(image)
+    data.save('pics/pic.jpg')
+
+def urdu_ocr(image):
+    url = 'http://167.172.31.248:7000/uploadfile'
+    files = {'file': open(f'{image}','rb')}
+    response = requests.post(url, files=files)
+    results = json.loads(response.text)
+    return results.get("output_text")
 
 def ocr_sections(section):
     custom_config = r'--oem 3 --psm 6'
@@ -36,7 +53,15 @@ def ocr_sections(section):
     ocr_result = "".join(ocr_result)     
     return ocr_result
 
-def urdu_ocr(img):
+def delete_extra_files():
+    dir = 'pics/'
+    for f in os.listdir(dir):
+        os.remove(os.path.join(dir, f))
+
+    dir = 'files/'
+    for f in os.listdir(dir):
+        os.remove(os.path.join(dir, f))    
+def easy_urdu_ocr(img):
     ocr_result = reader.readtext(img)
     urdu_data = []
     for i in ocr_result:
@@ -121,6 +146,7 @@ async def create_upload_file(file: UploadFile = File(...)):
                 cnic = cnic[1:]
         date_of_birth = ocr_sections(D_B)
         expiry_date = ocr_sections(E_D)
+        delete_extra_files()
 
         return {
             "name":name_text,
@@ -132,7 +158,8 @@ async def create_upload_file(file: UploadFile = File(...)):
 
     elif output_label == 'sim_back':
         address = gray[111:147, 165:360]
-        address_text = urdu_ocr(address)
+        address_text = easy_urdu_ocr(address)
+        delete_extra_files()
 
         return {
             "address":address_text
@@ -142,9 +169,10 @@ async def create_upload_file(file: UploadFile = File(...)):
         address = gray[49:154, 198:493]
         print(address)
         expiry_date = gray[303:338,152:264]
-        address_text = urdu_ocr(address)
+        address_text = easy_urdu_ocr(address)
         print(address_text)
-        expiry_date_text = urdu_ocr(expiry_date)
+        expiry_date_text = ocr_sections(expiry_date)
+        delete_extra_files()
 
         return {
             "expiry_date":expiry_date_text,
@@ -152,14 +180,18 @@ async def create_upload_file(file: UploadFile = File(...)):
         }
     elif output_label == 'front':
         name = gray[203:243,261:390]
+        save_img(name)
+        name_text = urdu_ocr('pics/pic.jpg')
         f_name = gray[285:325, 261:390]
+        save_img(f_name)
+        father_name = urdu_ocr('pics/pic.jpg')  
         cnic_no = gray[163:195,219:384]
         D_B = gray[378:416,271:390]
-
-        name_text = urdu_ocr(name)
-        father_name = urdu_ocr(f_name)
+        # father_name = urdu_ocr(f_name)
         cnic = ocr_sections(cnic_no)
         date_of_birth = ocr_sections(D_B)
+
+        delete_extra_files()
 
         return {
             "name":name_text,
@@ -167,3 +199,4 @@ async def create_upload_file(file: UploadFile = File(...)):
             "cnic_no":cnic,
             "date_of_birth":date_of_birth,
         }
+
