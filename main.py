@@ -50,7 +50,12 @@ def ocr_sections(section):
         ocr_result = ocr_result.replace("\n","")
     except Exception as e:
         print(ocr_result)
-    ocr_result = "".join(ocr_result)     
+    ocr_result = "".join(ocr_result)   
+    ocr_result = ocr_result.replace("\n","")
+    if ocr_result.startswith(" "):
+        ocr_result = ocr_result[1:]
+
+
     return ocr_result
 
 def delete_extra_files():
@@ -61,14 +66,14 @@ def delete_extra_files():
     dir = 'files/'
     for f in os.listdir(dir):
         os.remove(os.path.join(dir, f))    
-def easy_urdu_ocr(img):
-    ocr_result = reader.readtext(img)
-    urdu_data = []
-    for i in ocr_result:
-        print(i)
-        urdu_data.append(i[1])
-    urdu_data = " ".join(urdu_data)
-    return urdu_data
+# def easy_urdu_ocr(img):
+#     ocr_result = reader.readtext(img)
+#     urdu_data = []
+#     for i in ocr_result:
+#         print(i)
+#         urdu_data.append(i[1])
+#     urdu_data = " ".join(urdu_data)
+#     return urdu_data
 
 #load fastapi
 app = FastAPI()
@@ -139,13 +144,21 @@ async def create_upload_file(file: UploadFile = File(...)):
 
 
         father_name = ocr_sections(f_name)
-        father_name = re.sub(r"[-()\"#/@;:<>{}`+=~|.!?,]", "", father_name)
+        father_name = re.sub(r"[-()\"\'‘#/@;:<>{}`+=~|.!?,]", "", father_name)
+        father_name = father_name.lower().replace("name","")
+        father_name = father_name.lower().replace("2","Z")
         cnic = ocr_sections(cnic_no)
         if len(cnic) > 15:
             if cnic.startswith("9"):
                 cnic = cnic[1:]
+        if cnic.startswith("ldentity"):
+            cnic = cnic[15:]        
         date_of_birth = ocr_sections(D_B)
+        if date_of_birth.lower().startswith('jate')|date_of_birth.lower().startswith('date'):
+            date_of_birth = date_of_birth[13:]
         expiry_date = ocr_sections(E_D)
+        if expiry_date.lower().startswith('jate')|expiry_date.lower().startswith('date'):
+            expiry_date = expiry_date[14:]
         delete_extra_files()
 
         return {
