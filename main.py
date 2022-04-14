@@ -140,29 +140,35 @@ async def create_upload_file(file: UploadFile = File(...)):
         name_text = ocr_sections(name)
         if name_text.lower().startswith("name")|name_text.lower().startswith("wame"):
             name_text = name_text[4:]
-        name_text = re.sub(r"[-()\"#/@;:<>{}`+=~|.!?,]", "", name_text)
+        name_text = re.sub(r"[-()\"‘#/@;:<>{}`+=~|.!?,“]", "", name_text)
 
 
         father_name = ocr_sections(f_name)
-        father_name = re.sub(r"[-()\"\'‘#/@;:<>{}`+=~|.!?,]", "", father_name)
+        father_name = re.sub(r"[-()\"\'‘#/@;:<>{}`+=~|.!?,“]", "", father_name)
         father_name = father_name.lower().replace("name","")
         father_name = father_name.lower().replace("2","Z")
-        cnic = ocr_sections(cnic_no)
-        if len(cnic) > 15:
-            if cnic.startswith("9"):
-                cnic = cnic[1:]
-        if cnic.startswith("ldentity"):
-            cnic = cnic[15:]        
+        cnic_data = ocr_sections(cnic_no)
+        cnic_reg = re.compile(r'(\d{5}-\d{7}-\d)')
+        match = cnic_reg.finditer(cnic_data)
+        cnic = ""
+        for matches in match:
+            cnic = matches.group(0)
+            print(cnic)       
         date_of_birth = ocr_sections(D_B)
-        if date_of_birth.lower().startswith('jate')|date_of_birth.lower().startswith('date'):
-            date_of_birth = date_of_birth[13:]
-        if len(date_of_birth) > 11:
-            date_of_brith = date_of_birth.split(" ")
-            date_of_brith = date_of_birth[0]
+        date_reg = re.compile(r'(\d{2}.\d{2}.\d{4})')
+        match = date_reg.finditer(date_of_birth)
+        date_of_birth = ""
+        for matches in match:
+            date_of_birth = matches.group(0)
+            print(date_of_birth)
+
 
         expiry_date = ocr_sections(E_D)
-        if expiry_date.lower().startswith('jate')|expiry_date.lower().startswith('date'):
-            expiry_date = expiry_date[14:]
+        match = date_reg.finditer(expiry_date)
+        expiry_date = ""
+        for matches in match:
+            expiry_date = matches.group(0)
+            print(expiry_date)
         delete_extra_files()
 
         return {
