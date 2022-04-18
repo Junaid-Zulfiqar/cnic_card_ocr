@@ -25,13 +25,60 @@ except ImportError:
 
 print(json.__version__)
 
-# import easyocr
-# reader = easyocr.Reader(['en','ur'])
+import easyocr
+reader = easyocr.Reader(['en'])
 
 
+def HSV(image):
+    return cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
 def save_img(image):
     data = Image.fromarray(image)
     data.save('pics/pic.jpg')
+
+def rotateImage(cvImage, angle: float):
+    newImage = cvImage.copy()
+    (h, w) = newImage.shape[:2]
+    center = (w // 2, h // 2)
+    M = cv2.getRotationMatrix2D(center, angle, 1.0)
+    newImage = cv2.warpAffine(newImage, M, (w, h), flags=cv2.INTER_CUBIC, borderMode=cv2.BORDER_REPLICATE)
+    return newImage
+
+def getSkewAngle(cvImage) -> float:
+    # Prep image, copy, convert to gray scale, blur, and threshold
+    newImage = cvImage.copy()
+    gray = cv2.cvtColor(newImage, cv2.COLOR_BGR2GRAY)
+    blur = cv2.GaussianBlur(gray, (9, 9), 0)
+    thresh = cv2.threshold(blur, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)[1]
+
+    # Apply dilate to merge text into meaningful lines/paragraphs.
+    # Use larger kernel on X axis to merge characters into single line, cancelling out any spaces.
+    # But use smaller kernel on Y axis to separate between different blocks of text
+    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (30, 5))
+    dilate = cv2.dilate(thresh, kernel, iterations=2)
+
+    # Find all contours
+    contours, hierarchy = cv2.findContours(dilate, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
+    contours = sorted(contours, key = cv2.contourArea, reverse = True)
+    for c in contours:
+        rect = cv2.boundingRect(c)
+        x,y,w,h = rect
+        cv2.rectangle(newImage,(x,y),(x+w,y+h),(0,255,0),2)
+
+    # Find largest contour and surround in min area box
+    largestContour = contours[0]
+    print (len(contours))
+    minAreaRect = cv2.minAreaRect(largestContour)
+    cv2.imwrite('box.jpg', newImage)
+    # Determine the angle. Convert it to the value that was originally used to obtain skewed image
+    angle = minAreaRect[-1]
+    if angle < -45:
+        angle = 90 + angle
+    return -1.0 * angle
+
+# Deskew image
+def deskew(cvImage):
+    angle = getSkewAngle(cvImage)
+    return rotateImage(cvImage, -2.0 * angle)
 
 def urdu_ocr(image):
     url = 'http://167.172.31.248:7000/uploadfile'
@@ -40,7 +87,45 @@ def urdu_ocr(image):
     results = json.loads(response.text)
     return results.get("output_text")
 
+def hsv(image):
+    imgs = HSV(image)
+    h_min = 34
+    h_max = 140
+    s_min = 0
+    s_max = 67
+    v_min = 0
+    v_max = 175
+    print(h_min,h_max,s_min,s_max,v_min,v_max)
+    lower = np.array([h_min,s_min,v_min])
+    upper = np.array([h_max,s_max,v_max])
+    mask = cv2.inRange(imgs, lower, upper)
+    data = Image.fromarray(mask)
+    data.save('pics/pic.jpg')
+
+def hsv_ocr_sections(section):
+    hsv(section)
+    section = cv2.imread('pics/pic.jpg')
+    custom_config = r'--oem 3 --psm 6'
+    ocr_result = pytesseract.image_to_string(section, config=custom_config)
+    ocr_result = ocr_result.replace("\n\f","")
+    try:
+        ocr_result = ocr_result.split(":")
+        ocr_result = ocr_result[1]
+        ocr_result = ocr_result.replace("\n","")
+    except Exception as e:
+        print(ocr_result)
+    ocr_result = "".join(ocr_result)   
+    ocr_result = ocr_result.replace("\n","")
+    if ocr_result.startswith(" "):
+        ocr_result = ocr_result[1:]
+
+    return ocr_result
+
+
+
 def ocr_sections(section):
+    # section = cv2.cvtColor(section, cv2.COLOR_BGR2GRAY)
+    section = deskew(section)
     custom_config = r'--oem 3 --psm 6'
     ocr_result = pytesseract.image_to_string(section, config=custom_config)
     ocr_result = ocr_result.replace("\n\f","")
@@ -75,6 +160,62 @@ def delete_extra_files():
 #     urdu_data = " ".join(urdu_data)
 #     return urdu_data
 
+def easy_ocr(img):
+    ocr_result = reader.readtext(img)
+    urdu_data = []
+    for i in ocr_result:
+        print(i)
+        urdu_data.append(i[1])
+    urdu_data = " ".join(urdu_data)
+    return urdu_data
+
+
+def validate_name(name_text):
+    name_text = name_text.lower().replace("name","")
+    name_text = name_text.lower().replace("wame","")
+    name_text = re.sub(r"[-()\"‘#/@;:<>{}`+=~|.!?,“]", "", name_text)
+    if len(name_text) > 21:
+        name_text = ""
+    return name_text
+
+def validate_cnic(cnic_data):
+    cnic_reg = re.compile(r'(\d{5}-\d{7}-\d)')
+    match = cnic_reg.finditer(cnic_data)
+    cnic = ""
+    for matches in match:
+        cnic = matches.group(0)
+        print(cnic)  
+    return cnic     
+
+def validate_fn(father_name):
+    father_name = re.sub(r"[-()\"\'‘#/@;:<>{}`+=~|.!?,“]", "", father_name)
+    father_name = father_name.lower().replace("name","")
+    father_name = father_name.lower().replace("father name","")
+    father_name = father_name.lower().replace("2","Z")
+    if len(father_name) > 21:
+        father_name = ""
+    return father_name
+
+def validate_db(date_of_birth):
+    date_reg = re.compile(r'(\d{2}.\d{2}.\d{4})')
+    match = date_reg.finditer(date_of_birth)
+    date_of_birth = ""
+    for matches in match:
+        date_of_birth = matches.group(0)
+        print(date_of_birth)
+    return date_of_birth        
+
+def validate_ed(expiry_date):
+    date_reg = re.compile(r'(\d{2}.\d{2}.\d{4})')
+    match = date_reg.finditer(expiry_date)
+    expiry_date = ""
+    for matches in match:
+        expiry_date = matches.group(0)
+        print(expiry_date)
+    return expiry_date    
+
+
+
 #load fastapi
 app = FastAPI()
 
@@ -108,7 +249,7 @@ async def create_upload_file(file: UploadFile = File(...)):
         img = cv2.rotate(img, cv2.ROTATE_180)
     img_resize = cv2.resize(img,(600,480))
 
-    gray = cv2.cvtColor(img_resize, cv2.COLOR_BGR2GRAY)    
+    gray = img_resize    
     interpreter = tf.lite.Interpreter(model_path="card_ocr_model.tflite")
     interpreter.allocate_tensors()
 
@@ -136,42 +277,57 @@ async def create_upload_file(file: UploadFile = File(...)):
         D_B = gray[360:406,318:430]
         E_D = gray[420:465,318:430]
 
-
+        #name
         name_text = ocr_sections(name)
-        if name_text.lower().startswith("name")|name_text.lower().startswith("wame"):
-            name_text = name_text[4:]
-        name_text = re.sub(r"[-()\"‘#/@;:<>{}`+=~|.!?,“]", "", name_text)
-
-
+        name_text = validate_name(name_text)
+        if name_text == "":
+            name_text = hsv_ocr_sections(name) 
+            name_text = validate_name(name_text)
+        if name_text == "":
+            name_text = easy_ocr(name)
+            name_text = validate_name(name_text)    
+        
+        #father_name
         father_name = ocr_sections(f_name)
-        father_name = re.sub(r"[-()\"\'‘#/@;:<>{}`+=~|.!?,“]", "", father_name)
-        father_name = father_name.lower().replace("name","")
-        father_name = father_name.lower().replace("father name","")
-        father_name = father_name.lower().replace("2","Z")
-        if len(father_name) > 21:
-            father_name = ""
+        father_name = validate_fn(father_name)        
+        if father_name== "":
+            father_name = hsv_ocr_sections(f_name)
+            father_name = validate_fn(father_name)
+        if father_name == "":
+            father_name = easy_ocr(f_name)
+            father_name = validate_fn(father_name)
+            
+
+        #cnic
         cnic_data = ocr_sections(cnic_no)
-        cnic_reg = re.compile(r'(\d{5}-\d{7}-\d)')
-        match = cnic_reg.finditer(cnic_data)
-        cnic = ""
-        for matches in match:
-            cnic = matches.group(0)
-            print(cnic)       
+        cnic = validate_cnic(cnic_data)
+        if cnic == "":
+            cnic = hsv_ocr_sections(cnic_no)
+            cnic = validate_cnic(cnic_data)    
+        if cnic == "":
+            cnic = easy_ocr(cnic_no)
+            # cnic = validate_cnic(cnic_data)
+
+        #date_of_birth
         date_of_birth = ocr_sections(D_B)
-        date_reg = re.compile(r'(\d{2}.\d{2}.\d{4})')
-        match = date_reg.finditer(date_of_birth)
-        date_of_birth = ""
-        for matches in match:
-            date_of_birth = matches.group(0)
-            print(date_of_birth)
-
-
+        date_of_birth = validate_db(date_of_birth)
+        if date_of_birth == "":
+            date_of_birth = hsv_ocr_sections(D_B)  
+            date_of_birth = validate_db(date_of_birth)
+        if date_of_birth == "":
+            date_of_birth = easy_ocr(D_B)  
+            date_of_birth = validate_db(date_of_birth)        
+                  
+        #expiry_date          
         expiry_date = ocr_sections(E_D)
-        match = date_reg.finditer(expiry_date)
-        expiry_date = ""
-        for matches in match:
-            expiry_date = matches.group(0)
-            print(expiry_date)
+        expiry_date = validate_ed(expiry_date)    
+        if expiry_date == "":
+            expiry_date = hsv_ocr_sections(E_D)
+            expiry_date = validate_ed(expiry_date)
+        if expiry_date == "":
+            expiry_date = easy_ocr(E_D)
+            expiry_date = validate_ed(expiry_date)    
+
         delete_extra_files()
 
         return {
