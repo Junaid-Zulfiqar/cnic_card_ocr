@@ -23,10 +23,9 @@ try:
 except ImportError:
     import Image
 
-print(json.__version__)
 
-import easyocr
-reader = easyocr.Reader(['en'])
+# import easyocr
+# reader = easyocr.Reader(['en'])
 
 
 def HSV(image):
@@ -160,14 +159,14 @@ def delete_extra_files():
 #     urdu_data = " ".join(urdu_data)
 #     return urdu_data
 
-def easy_ocr(img):
-    ocr_result = reader.readtext(img)
-    urdu_data = []
-    for i in ocr_result:
-        print(i)
-        urdu_data.append(i[1])
-    urdu_data = " ".join(urdu_data)
-    return urdu_data
+# def easy_ocr(img):
+#     ocr_result = reader.readtext(img)
+#     urdu_data = []
+#     for i in ocr_result:
+#         print(i)
+#         urdu_data.append(i[1])
+#     urdu_data = " ".join(urdu_data)
+#     return urdu_data
 
 
 def validate_name(name_text):
@@ -283,9 +282,9 @@ async def create_upload_file(file: UploadFile = File(...)):
         if name_text == "":
             name_text = hsv_ocr_sections(name) 
             name_text = validate_name(name_text)
-        if name_text == "":
-            name_text = easy_ocr(name)
-            name_text = validate_name(name_text)    
+        # if name_text == "":
+        #     name_text = easy_ocr(name)
+        #     name_text = validate_name(name_text)    
         
         #father_name
         father_name = ocr_sections(f_name)
@@ -293,9 +292,9 @@ async def create_upload_file(file: UploadFile = File(...)):
         if father_name== "":
             father_name = hsv_ocr_sections(f_name)
             father_name = validate_fn(father_name)
-        if father_name == "":
-            father_name = easy_ocr(f_name)
-            father_name = validate_fn(father_name)
+        # if father_name == "":
+        #     father_name = easy_ocr(f_name)
+        #     father_name = validate_fn(father_name)
             
 
         #cnic
@@ -304,8 +303,8 @@ async def create_upload_file(file: UploadFile = File(...)):
         if cnic == "":
             cnic = hsv_ocr_sections(cnic_no)
             cnic = validate_cnic(cnic_data)    
-        if cnic == "":
-            cnic = easy_ocr(cnic_no)
+        # if cnic == "":
+        #     cnic = easy_ocr(cnic_no)
             # cnic = validate_cnic(cnic_data)
 
         #date_of_birth
@@ -314,9 +313,9 @@ async def create_upload_file(file: UploadFile = File(...)):
         if date_of_birth == "":
             date_of_birth = hsv_ocr_sections(D_B)  
             date_of_birth = validate_db(date_of_birth)
-        if date_of_birth == "":
-            date_of_birth = easy_ocr(D_B)  
-            date_of_birth = validate_db(date_of_birth)        
+        # if date_of_birth == "":
+        #     date_of_birth = easy_ocr(D_B)  
+        #     date_of_birth = validate_db(date_of_birth)        
                   
         #expiry_date          
         expiry_date = ocr_sections(E_D)
@@ -324,9 +323,9 @@ async def create_upload_file(file: UploadFile = File(...)):
         if expiry_date == "":
             expiry_date = hsv_ocr_sections(E_D)
             expiry_date = validate_ed(expiry_date)
-        if expiry_date == "":
-            expiry_date = easy_ocr(E_D)
-            expiry_date = validate_ed(expiry_date)    
+        # if expiry_date == "":
+        #     expiry_date = easy_ocr(E_D)
+        #     expiry_date = validate_ed(expiry_date)    
 
         delete_extra_files()
 
