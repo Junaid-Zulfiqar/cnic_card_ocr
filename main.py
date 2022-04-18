@@ -146,7 +146,10 @@ async def create_upload_file(file: UploadFile = File(...)):
         father_name = ocr_sections(f_name)
         father_name = re.sub(r"[-()\"\'‘#/@;:<>{}`+=~|.!?,“]", "", father_name)
         father_name = father_name.lower().replace("name","")
+        father_name = father_name.lower().replace("father name","")
         father_name = father_name.lower().replace("2","Z")
+        if len(father_name) > 21:
+            father_name = ""
         cnic_data = ocr_sections(cnic_no)
         cnic_reg = re.compile(r'(\d{5}-\d{7}-\d)')
         match = cnic_reg.finditer(cnic_data)
