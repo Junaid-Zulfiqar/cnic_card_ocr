@@ -27,6 +27,17 @@ except ImportError:
 # import easyocr
 # reader = easyocr.Reader(['en'])
 
+def increase_brightness(img, value=30):
+    hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+    h, s, v = cv2.split(hsv)
+
+    lim = 255 - value
+    v[v > lim] = 255
+    v[v <= lim] += value
+
+    final_hsv = cv2.merge((h, s, v))
+    img = cv2.cvtColor(final_hsv, cv2.COLOR_HSV2BGR)
+    return img
 
 def HSV(image):
     return cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
@@ -71,7 +82,7 @@ def hsv_ocr_sections(section):
 
 
 def ocr_sections(section):
-    section = cv2.cvtColor(section, cv2.COLOR_BGR2GRAY)
+    # section = cv2.cvtColor(section, cv2.COLOR_BGR2GRAY)
     custom_config = r'--oem 3 --psm 6'
     ocr_result = pytesseract.image_to_string(section, config=custom_config)
     ocr_result = ocr_result.replace("\n\f","")
@@ -143,7 +154,7 @@ def validate_fn(father_name):
     return father_name
 
 def validate_db(date_of_birth):
-    date_reg = re.compile(r'(\d{2}.\d{2}.\d{4})')
+    date_reg = re.compile(r'(\d+.\d{2}.\d{4})')
     match = date_reg.finditer(date_of_birth)
     date_of_birth = ""
     for matches in match:
@@ -152,7 +163,7 @@ def validate_db(date_of_birth):
     return date_of_birth        
 
 def validate_ed(expiry_date):
-    date_reg = re.compile(r'(\d{2}.\d{2}.\d{4})')
+    date_reg = re.compile(r'(\d+.\d{2}.\d{4})')
     match = date_reg.finditer(expiry_date)
     expiry_date = ""
     for matches in match:
@@ -229,6 +240,12 @@ async def create_upload_file(file: UploadFile = File(...)):
         if name_text == "":
             name_text = hsv_ocr_sections(name) 
             name_text = validate_name(name_text)
+        if name_text == "":
+            name = increase_brightness(name, value=100)
+            name_text = ocr_sections(name)
+            name_text = validate_name(name_text)
+
+    
         # if name_text == "":
         #     name_text = easy_ocr(name)
         #     name_text = validate_name(name_text)    
@@ -239,6 +256,10 @@ async def create_upload_file(file: UploadFile = File(...)):
         if father_name== "":
             father_name = hsv_ocr_sections(f_name)
             father_name = validate_fn(father_name)
+        if father_name == "":
+            f_name = increase_brightness(f_name, value=100)
+            father_name = ocr_sections(f_name)
+            father_name = validate_fn(father_name)  
         # if father_name == "":
         #     father_name = easy_ocr(f_name)
         #     father_name = validate_fn(father_name)
@@ -249,7 +270,11 @@ async def create_upload_file(file: UploadFile = File(...)):
         cnic = validate_cnic(cnic_data)
         if cnic == "":
             cnic = hsv_ocr_sections(cnic_no)
-            cnic = validate_cnic(cnic_data)    
+            cnic = validate_cnic(cnic)
+        if cnic == "":
+            cnic_no = increase_brightness(cnic_no, value=100)
+            cnic = ocr_sections(cnic_no)
+            cnic = validate_cnic(cnic)        
         # if cnic == "":
         #     cnic = easy_ocr(cnic_no)
             # cnic = validate_cnic(cnic_data)
@@ -260,6 +285,11 @@ async def create_upload_file(file: UploadFile = File(...)):
         if date_of_birth == "":
             date_of_birth = hsv_ocr_sections(D_B)  
             date_of_birth = validate_db(date_of_birth)
+        if date_of_birth == "":
+            D_B = increase_brightness(D_B, value=100)
+            date_of_birth = ocr_sections(D_B)
+            date_of_birth = validate_db(date_of_birth)    
+
         # if date_of_birth == "":
         #     date_of_birth = easy_ocr(D_B)  
         #     date_of_birth = validate_db(date_of_birth)        
@@ -270,6 +300,10 @@ async def create_upload_file(file: UploadFile = File(...)):
         if expiry_date == "":
             expiry_date = hsv_ocr_sections(E_D)
             expiry_date = validate_ed(expiry_date)
+        if expiry_date == "":
+            E_D = increase_brightness(E_D, value=100)
+            expiry_date = ocr_sections(E_D)
+            expiry_date = validate_ed(expiry_date)    
         # if expiry_date == "":
         #     expiry_date = easy_ocr(E_D)
         #     expiry_date = validate_ed(expiry_date)    
