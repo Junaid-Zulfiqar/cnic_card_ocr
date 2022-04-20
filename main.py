@@ -93,7 +93,7 @@ def ocr_sections(section):
     except Exception as e:
         print(ocr_result)
     ocr_result = "".join(ocr_result)   
-    ocr_result = ocr_result.replace("\n","")
+    # ocr_result = ocr_result.replace("\n","")
     if ocr_result.startswith(" "):
         ocr_result = ocr_result[1:]
 
@@ -129,14 +129,20 @@ def delete_extra_files():
 
 def validate_name(name_text):
     name_text = name_text.lower().replace("name","")
+    name_text = name_text.lower().replace("lame","")
+    name_text = name_text.lower().replace("ame","")
     name_text = name_text.lower().replace("wame","")
+    if "\n" in name_text:
+        name_text = name_text.split("\n")
+        name_text = name_text[1]
     name_text = re.sub(r"[-()\"‘#/@;:<>{}`+=~|.!?,“]", "", name_text)
     if len(name_text) > 21:
         name_text = ""
     return name_text
 
 def validate_cnic(cnic_data):
-    cnic_reg = re.compile(r'(\d{5}-\d{7}-\d)')
+    cnic_reg = re.compile(r'((?:\d{5}|\d{4})-\d{7}(?:-|)\d)')
+    cnic_data = cnic_data.lower().replace("b",'8')
     match = cnic_reg.finditer(cnic_data)
     cnic = ""
     for matches in match:
@@ -149,6 +155,9 @@ def validate_fn(father_name):
     father_name = father_name.lower().replace("name","")
     father_name = father_name.lower().replace("father name","")
     father_name = father_name.lower().replace("2","Z")
+    if "\n" in father_name:
+        father_name = father_name.split("\n")
+        father_name = father_name[1]
     if len(father_name) > 21:
         father_name = ""
     return father_name
@@ -169,6 +178,7 @@ def validate_ed(expiry_date):
     for matches in match:
         expiry_date = matches.group(0)
         print(expiry_date)
+    expiry_date = expiry_date.replace(",", ".")    
     return expiry_date    
 
 
@@ -231,8 +241,8 @@ async def create_upload_file(file: UploadFile = File(...)):
         name = gray[95:147, 165:400]
         f_name = gray[198:247, 165:400]
         cnic_no = gray[365:406,165:308]
-        D_B = gray[360:406,318:430]
-        E_D = gray[420:465,318:430]
+        D_B = gray[360:406,310:430]
+        E_D = gray[420:465,310:430]
 
         #name
         name_text = ocr_sections(name)
@@ -241,7 +251,7 @@ async def create_upload_file(file: UploadFile = File(...)):
             name_text = hsv_ocr_sections(name) 
             name_text = validate_name(name_text)
         if name_text == "":
-            name = increase_brightness(name, value=100)
+            name = increase_brightness(name, value=150)
             name_text = ocr_sections(name)
             name_text = validate_name(name_text)
 
@@ -257,7 +267,7 @@ async def create_upload_file(file: UploadFile = File(...)):
             father_name = hsv_ocr_sections(f_name)
             father_name = validate_fn(father_name)
         if father_name == "":
-            f_name = increase_brightness(f_name, value=100)
+            f_name = increase_brightness(f_name, value=150)
             father_name = ocr_sections(f_name)
             father_name = validate_fn(father_name)  
         # if father_name == "":
@@ -272,7 +282,7 @@ async def create_upload_file(file: UploadFile = File(...)):
             cnic = hsv_ocr_sections(cnic_no)
             cnic = validate_cnic(cnic)
         if cnic == "":
-            cnic_no = increase_brightness(cnic_no, value=100)
+            cnic_no = increase_brightness(cnic_no, value=150)
             cnic = ocr_sections(cnic_no)
             cnic = validate_cnic(cnic)        
         # if cnic == "":
@@ -286,7 +296,7 @@ async def create_upload_file(file: UploadFile = File(...)):
             date_of_birth = hsv_ocr_sections(D_B)  
             date_of_birth = validate_db(date_of_birth)
         if date_of_birth == "":
-            D_B = increase_brightness(D_B, value=100)
+            D_B = increase_brightness(D_B, value=150)
             date_of_birth = ocr_sections(D_B)
             date_of_birth = validate_db(date_of_birth)    
 
@@ -301,7 +311,7 @@ async def create_upload_file(file: UploadFile = File(...)):
             expiry_date = hsv_ocr_sections(E_D)
             expiry_date = validate_ed(expiry_date)
         if expiry_date == "":
-            E_D = increase_brightness(E_D, value=100)
+            E_D = increase_brightness(E_D, value=150)
             expiry_date = ocr_sections(E_D)
             expiry_date = validate_ed(expiry_date)    
         # if expiry_date == "":
