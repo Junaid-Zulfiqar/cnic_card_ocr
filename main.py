@@ -16,6 +16,8 @@ import pandas as pd
 from tensorflow.keras.preprocessing import image
 import pytesseract
 pytesseract.tesseract_cmd = r'C:/Program Files/Tesseract-OCR/tesseract.exe'
+import pyocr
+import pyocr.builders
 import shutil 
 import random
 try:
@@ -97,6 +99,30 @@ def ocr_sections(section):
     if ocr_result.startswith(" "):
         ocr_result = ocr_result[1:]
 
+
+    return ocr_result
+
+def pyocr_sections(section):
+    section = cv2.cvtColor(section, cv2.COLOR_BGR2GRAY)
+    data = Image.fromarray(section)
+    data.save('pics/pic.jpg')
+    img = Image.open('pics/pic.jpg')
+    tools = pyocr.get_available_tools()[0]
+    ocr_result = tools.image_to_string(
+    img,
+    lang='eng',
+    builder=pyocr.builders.DigitBuilder())
+    ocr_result = ocr_result.replace("\n\f","")
+    try:
+        ocr_result = ocr_result.split(":")
+        ocr_result = ocr_result[1]
+        ocr_result = ocr_result.replace("\n","")
+    except Exception as e:
+        print(ocr_result)
+    ocr_result = "".join(ocr_result)   
+    # ocr_result = ocr_result.replace("\n","")
+    if ocr_result.startswith(" "):
+        ocr_result = ocr_result[1:]
 
     return ocr_result
 
@@ -284,7 +310,12 @@ async def create_upload_file(file: UploadFile = File(...)):
         if cnic == "":
             cnic_no = increase_brightness(cnic_no, value=100)
             cnic = ocr_sections(cnic_no)
-            cnic = validate_cnic(cnic)        
+            cnic = validate_cnic(cnic)    
+        if cnic == "":
+            # cnic_no = increase_brightness(cnic_no, value=100)
+            cnic = pyocr_sections(cnic_no)
+            cnic = validate_cnic(cnic)    
+               
         # if cnic == "":
         #     cnic = easy_ocr(cnic_no)
             # cnic = validate_cnic(cnic_data)
@@ -298,6 +329,9 @@ async def create_upload_file(file: UploadFile = File(...)):
         if date_of_birth == "":
             D_B = increase_brightness(D_B, value=100)
             date_of_birth = ocr_sections(D_B)
+            date_of_birth = validate_db(date_of_birth)    
+        if date_of_birth == "":
+            date_of_birth = pyocr_sections(D_B)
             date_of_birth = validate_db(date_of_birth)    
 
         # if date_of_birth == "":
@@ -313,7 +347,11 @@ async def create_upload_file(file: UploadFile = File(...)):
         if expiry_date == "":
             E_D = increase_brightness(E_D, value=100)
             expiry_date = ocr_sections(E_D)
-            expiry_date = validate_ed(expiry_date)    
+            expiry_date = validate_ed(expiry_date)   
+        if expiry_date == "":
+            # E_D = increase_brightness(E_D, value=100)
+            expiry_date = ocr_sections(E_D)
+            expiry_date = validate_ed(expiry_date)      
         # if expiry_date == "":
         #     expiry_date = easy_ocr(E_D)
         #     expiry_date = validate_ed(expiry_date)    
