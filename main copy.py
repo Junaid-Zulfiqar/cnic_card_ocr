@@ -16,6 +16,8 @@ import pandas as pd
 from tensorflow.keras.preprocessing import image
 import pytesseract
 pytesseract.tesseract_cmd = r'C:/Program Files/Tesseract-OCR/tesseract.exe'
+import pyocr
+import pyocr.builders
 import shutil 
 import random
 try:
@@ -23,26 +25,27 @@ try:
 except ImportError:
     import Image
 
-print(json.__version__)
-
-
 
 # import easyocr
-# reader = easyocr.Reader(['en','ur'])
+# reader = easyocr.Reader(['en'])
 
+def increase_brightness(img, value=30):
+    hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+    h, s, v = cv2.split(hsv)
+
+    lim = 255 - value
+    v[v > lim] = 255
+    v[v <= lim] += value
+
+    final_hsv = cv2.merge((h, s, v))
+    img = cv2.cvtColor(final_hsv, cv2.COLOR_HSV2BGR)
+    return img
 
 def HSV(image):
     return cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
 def save_img(image):
     data = Image.fromarray(image)
     data.save('pics/pic.jpg')
-
-def urdu_ocr(image):
-    url = 'http://167.172.31.248:7000/uploadfile'
-    files = {'file': open(f'{image}','rb')}
-    response = requests.post(url, files=files)
-    results = json.loads(response.text)
-    return results.get("output_text")
 
 def hsv(image):
     imgs = HSV(image)
@@ -81,7 +84,7 @@ def hsv_ocr_sections(section):
 
 
 def ocr_sections(section):
-    section = cv2.cvtColor(section, cv2.COLOR_BGR2GRAY)
+    # section = cv2.cvtColor(section, cv2.COLOR_BGR2GRAY)
     custom_config = r'--oem 3 --psm 6'
     ocr_result = pytesseract.image_to_string(section, config=custom_config)
     ocr_result = ocr_result.replace("\n\f","")
@@ -92,10 +95,34 @@ def ocr_sections(section):
     except Exception as e:
         print(ocr_result)
     ocr_result = "".join(ocr_result)   
-    ocr_result = ocr_result.replace("\n","")
+    # ocr_result = ocr_result.replace("\n","")
     if ocr_result.startswith(" "):
         ocr_result = ocr_result[1:]
 
+
+    return ocr_result
+
+def pyocr_sections(section):
+    section = cv2.cvtColor(section, cv2.COLOR_BGR2GRAY)
+    data = Image.fromarray(section)
+    data.save('pics/pic.jpg')
+    img = Image.open('pics/pic.jpg')
+    tools = pyocr.get_available_tools()[0]
+    ocr_result = tools.image_to_string(
+    img,
+    lang='eng',
+    builder=pyocr.builders.DigitBuilder())
+    ocr_result = ocr_result.replace("\n\f","")
+    try:
+        ocr_result = ocr_result.split(":")
+        ocr_result = ocr_result[1]
+        ocr_result = ocr_result.replace("\n","")
+    except Exception as e:
+        print(ocr_result)
+    ocr_result = "".join(ocr_result)   
+    # ocr_result = ocr_result.replace("\n","")
+    if ocr_result.startswith(" "):
+        ocr_result = ocr_result[1:]
 
     return ocr_result
 
@@ -115,6 +142,72 @@ def delete_extra_files():
 #         urdu_data.append(i[1])
 #     urdu_data = " ".join(urdu_data)
 #     return urdu_data
+
+# def easy_ocr(img):
+#     ocr_result = reader.readtext(img)
+#     urdu_data = []
+#     for i in ocr_result:
+#         print(i)
+#         urdu_data.append(i[1])
+#     urdu_data = " ".join(urdu_data)
+#     return urdu_data
+
+
+def validate_name(name_text):
+    name_text = name_text.lower().replace("name","")
+    name_text = name_text.lower().replace("lame","")
+    name_text = name_text.lower().replace("ame","")
+    name_text = name_text.lower().replace("wame","")
+    if "\n" in name_text:
+        name_text = name_text.split("\n")
+        name_text = name_text[1]
+    name_text = re.sub(r"[-()\"‘#/@;:<>{}`+=~|.!?,“]", "", name_text)
+    if len(name_text) > 21:
+        name_text = ""
+    return name_text
+
+def validate_cnic(cnic_data):
+    cnic_reg = re.compile(r'((?:\d{5}|\d{4})-\d{7}(?:-|)\d)')
+    cnic_data = cnic_data.lower().replace("b",'8')
+    match = cnic_reg.finditer(cnic_data)
+    cnic = ""
+    for matches in match:
+        cnic = matches.group(0)
+        print(cnic)  
+    return cnic     
+
+def validate_fn(father_name):
+    father_name = re.sub(r"[-()\"\'‘#/@;:<>{}`+=~|.!?,“]", "", father_name)
+    father_name = father_name.lower().replace("name","")
+    father_name = father_name.lower().replace("father name","")
+    father_name = father_name.lower().replace("2","Z")
+    if "\n" in father_name:
+        father_name = father_name.split("\n")
+        father_name = father_name[1]
+    if len(father_name) > 21:
+        father_name = ""
+    return father_name
+
+def validate_db(date_of_birth):
+    date_reg = re.compile(r'(\d+.\d{2}.\d{4})')
+    match = date_reg.finditer(date_of_birth)
+    date_of_birth = ""
+    for matches in match:
+        date_of_birth = matches.group(0)
+        print(date_of_birth)
+    return date_of_birth        
+
+def validate_ed(expiry_date):
+    date_reg = re.compile(r'(\d+.\d{2}.\d{4})')
+    match = date_reg.finditer(expiry_date)
+    expiry_date = ""
+    for matches in match:
+        expiry_date = matches.group(0)
+        print(expiry_date)
+    expiry_date = expiry_date.replace(",", ".")    
+    return expiry_date    
+
+
 
 #load fastapi
 app = FastAPI()
@@ -173,65 +266,95 @@ async def create_upload_file(file: UploadFile = File(...)):
     if output_label == 'sim_front':
         name = gray[95:147, 165:400]
         f_name = gray[198:247, 165:400]
-        cnic_no = gray[365:406,165:308]
-        D_B = gray[360:406,318:430]
-        E_D = gray[420:465,318:430]
+        cnic_no = gray[360:406,165:308]
+        D_B = gray[360:406,310:430]
+        E_D = gray[420:465,310:430]
 
-
+        #name
         name_text = ocr_sections(name)
-        name_text = name_text.lower().replace("name","")
-        name_text = name_text.lower().replace("wame","")
-        name_text = re.sub(r"[-()\"‘#/@;:<>{}`+=~|.!?,“]", "", name_text)
-        if len(name_text) > 21:
-            name_text = ""
+        name_text = validate_name(name_text)
         if name_text == "":
-            hsv_ocr_sections(name) 
+            name_text = hsv_ocr_sections(name) 
+            name_text = validate_name(name_text)
+        if name_text == "":
+            name = increase_brightness(name, value=100)
+            name_text = ocr_sections(name)
+            name_text = validate_name(name_text)
+
+    
+        # if name_text == "":
+        #     name_text = easy_ocr(name)
+        #     name_text = validate_name(name_text)    
+        
+        #father_name
+        father_name = ocr_sections(f_name)
+        father_name = validate_fn(father_name)        
+        if father_name== "":
+            father_name = hsv_ocr_sections(f_name)
+            father_name = validate_fn(father_name)
+        if father_name == "":
+            f_name = increase_brightness(f_name, value=100)
+            father_name = ocr_sections(f_name)
+            father_name = validate_fn(father_name)  
+        # if father_name == "":
+        #     father_name = easy_ocr(f_name)
+        #     father_name = validate_fn(father_name)
             
 
-
-        father_name = ocr_sections(f_name)
-        father_name = re.sub(r"[-()\"\'‘#/@;:<>{}`+=~|.!?,“]", "", father_name)
-        father_name = father_name.lower().replace("name","")
-        father_name = father_name.lower().replace("father name","")
-        father_name = father_name.lower().replace("2","Z")
-        if len(father_name) > 21:
-            father_name = ""
-
-        if father_name== "":
-            hsv_ocr_sections(f_name)
-
+        #cnic
         cnic_data = ocr_sections(cnic_no)
-        cnic_reg = re.compile(r'(\d{5}-\d{7}-\d)')
-        match = cnic_reg.finditer(cnic_data)
-        cnic = ""
-        for matches in match:
-            cnic = matches.group(0)
-            print(cnic)     
-
+        cnic = validate_cnic(cnic_data)
         if cnic == "":
-            hsv_ocr_sections(cnic_no)
+            cnic = hsv_ocr_sections(cnic_no)
+            cnic = validate_cnic(cnic)
+        if cnic == "":
+            cnic_no = increase_brightness(cnic_no, value=100)
+            cnic = ocr_sections(cnic_no)
+            cnic = validate_cnic(cnic)    
+        if cnic == "":
+            # cnic_no = increase_brightness(cnic_no, value=100)
+            cnic = pyocr_sections(cnic_no)
+            cnic = validate_cnic(cnic)    
+               
+        # if cnic == "":
+        #     cnic = easy_ocr(cnic_no)
+            # cnic = validate_cnic(cnic_data)
 
+        #date_of_birth
         date_of_birth = ocr_sections(D_B)
-        date_reg = re.compile(r'(\d{2}.\d{2}.\d{4})')
-        match = date_reg.finditer(date_of_birth)
-        date_of_birth = ""
-        for matches in match:
-            date_of_birth = matches.group(0)
-            print(date_of_birth)
-
+        date_of_birth = validate_db(date_of_birth)
         if date_of_birth == "":
-            hsv_ocr_sections(D_B)    
+            date_of_birth = hsv_ocr_sections(D_B)  
+            date_of_birth = validate_db(date_of_birth)
+        if date_of_birth == "":
+            D_B = increase_brightness(D_B, value=100)
+            date_of_birth = ocr_sections(D_B)
+            date_of_birth = validate_db(date_of_birth)    
+        if date_of_birth == "":
+            date_of_birth = pyocr_sections(D_B)
+            date_of_birth = validate_db(date_of_birth)    
 
-
+        # if date_of_birth == "":
+        #     date_of_birth = easy_ocr(D_B)  
+        #     date_of_birth = validate_db(date_of_birth)        
+                  
+        #expiry_date          
         expiry_date = ocr_sections(E_D)
-        match = date_reg.finditer(expiry_date)
-        expiry_date = ""
-        for matches in match:
-            expiry_date = matches.group(0)
-            print(expiry_date)
-
+        expiry_date = validate_ed(expiry_date)    
         if expiry_date == "":
-            hsv_ocr_sections(E_D)
+            expiry_date = hsv_ocr_sections(E_D)
+            expiry_date = validate_ed(expiry_date)
+        if expiry_date == "":
+            E_D = increase_brightness(E_D, value=100)
+            expiry_date = ocr_sections(E_D)
+            expiry_date = validate_ed(expiry_date)   
+        if expiry_date == "":
+            # E_D = increase_brightness(E_D, value=100)
+            expiry_date = ocr_sections(E_D)
+            expiry_date = validate_ed(expiry_date)      
+        # if expiry_date == "":
+        #     expiry_date = easy_ocr(E_D)
+        #     expiry_date = validate_ed(expiry_date)    
 
         delete_extra_files()
 

@@ -24,6 +24,11 @@ try:
     from PIL import Image
 except ImportError:
     import Image
+import keras_ocr
+
+# keras-ocr will automatically download pretrained
+# weights for the detector and recognizer.
+pipeline = keras_ocr.pipeline.Pipeline()    
 
 
 # import easyocr
@@ -84,7 +89,7 @@ def hsv_ocr_sections(section):
 
 
 def ocr_sections(section):
-    # section = cv2.cvtColor(section, cv2.COLOR_BGR2GRAY)
+    section = cv2.cvtColor(section, cv2.COLOR_BGR2GRAY)
     custom_config = r'--oem 3 --psm 6'
     ocr_result = pytesseract.image_to_string(section, config=custom_config)
     ocr_result = ocr_result.replace("\n\f","")
@@ -124,6 +129,22 @@ def pyocr_sections(section):
     if ocr_result.startswith(" "):
         ocr_result = ocr_result[1:]
 
+    return ocr_result
+
+def keras_ocr_sections(section):
+    section = cv2.cvtColor(section, cv2.COLOR_BGR2GRAY)
+    data = Image.fromarray(section)
+    data.save('pics/pic.jpg')
+    images = [
+    keras_ocr.tools.read(url) for url in [
+        'pics/pic.jpg',
+        ]
+    ]
+    prediction_groups = pipeline.recognize(images)
+    print(prediction_groups[0][0])
+    ocr_result = prediction_groups[0][0][0]
+    if ocr_result.startswith(" "):
+        ocr_result = ocr_result[1:]
     return ocr_result
 
 def delete_extra_files():
@@ -167,7 +188,7 @@ def validate_name(name_text):
     return name_text
 
 def validate_cnic(cnic_data):
-    cnic_reg = re.compile(r'((?:\d{5}|\d{4})-\d{7}(?:-|)\d)')
+    cnic_reg = re.compile(r'((?:\d{5}|\d{4})(?:-|\s+|)\d{7}(?:-|\s+|)(?:\d|))')
     cnic_data = cnic_data.lower().replace("b",'8')
     match = cnic_reg.finditer(cnic_data)
     cnic = ""
@@ -189,7 +210,7 @@ def validate_fn(father_name):
     return father_name
 
 def validate_db(date_of_birth):
-    date_reg = re.compile(r'(\d+.\d{2}.\d{4})')
+    date_reg = re.compile(r'(\d+(?:.|\s+|)\d{2}(?:.|\s+|)\d{4})')
     match = date_reg.finditer(date_of_birth)
     date_of_birth = ""
     for matches in match:
@@ -198,7 +219,7 @@ def validate_db(date_of_birth):
     return date_of_birth        
 
 def validate_ed(expiry_date):
-    date_reg = re.compile(r'(\d+.\d{2}.\d{4})')
+    date_reg = re.compile(r'(\d+(?:.|\s+|)\d{2}(?:.|\s+|)\d{4})')
     match = date_reg.finditer(expiry_date)
     expiry_date = ""
     for matches in match:
@@ -264,9 +285,9 @@ async def create_upload_file(file: UploadFile = File(...)):
     print(labels[int(output_data[0].argmax())])
     output_label = labels[int(output_data[0].argmax())]
     if output_label == 'sim_front':
-        name = gray[95:147, 165:400]
-        f_name = gray[198:247, 165:400]
-        cnic_no = gray[360:406,165:308]
+        name = gray[95:150, 165:400]
+        f_name = gray[198:255, 165:400]
+        cnic_no = gray[360:414,165:308]
         D_B = gray[360:406,310:430]
         E_D = gray[420:465,310:430]
 
@@ -280,6 +301,15 @@ async def create_upload_file(file: UploadFile = File(...)):
             name = increase_brightness(name, value=100)
             name_text = ocr_sections(name)
             name_text = validate_name(name_text)
+        if name_text == "":
+            # name = increase_brightness(name, value=100)
+            name_text = pyocr_sections(name)
+            name_text = validate_name(name_text)
+        if name_text == "":
+            # name = increase_brightness(name, value=100)
+            name_text = keras_ocr_sections(name)
+            name_text = validate_name(name_text)        
+
 
     
         # if name_text == "":
@@ -295,10 +325,20 @@ async def create_upload_file(file: UploadFile = File(...)):
         if father_name == "":
             f_name = increase_brightness(f_name, value=100)
             father_name = ocr_sections(f_name)
-            father_name = validate_fn(father_name)  
+            father_name = validate_fn(father_name) 
+        if father_name == "":
+            # f_name = increase_brightness(f_name, value=100)
+            father_name = pyocr_sections(f_name)
+            father_name = validate_fn(father_name)
+        if father_name == "":
+            father_name = keras_ocr_sections(f_name)
+            # father_name = validate_fn(father_name)         
         # if father_name == "":
         #     father_name = easy_ocr(f_name)
         #     father_name = validate_fn(father_name)
+        if father_name == "":
+            father_name = keras_ocr_sections(f_name)
+            father_name = validate_fn(father_name)
             
 
         #cnic
@@ -319,6 +359,9 @@ async def create_upload_file(file: UploadFile = File(...)):
         # if cnic == "":
         #     cnic = easy_ocr(cnic_no)
             # cnic = validate_cnic(cnic_data)
+        if cnic == "":
+            cnic = keras_ocr_sections(cnic_no)
+            cnic = validate_cnic(cnic_data)    
 
         #date_of_birth
         date_of_birth = ocr_sections(D_B)
@@ -332,7 +375,10 @@ async def create_upload_file(file: UploadFile = File(...)):
             date_of_birth = validate_db(date_of_birth)    
         if date_of_birth == "":
             date_of_birth = pyocr_sections(D_B)
-            date_of_birth = validate_db(date_of_birth)    
+            date_of_birth = validate_db(date_of_birth)  
+        if date_of_birth == "":
+            date_of_birth = keras_ocr_sections(D_B)
+            date_of_birth = validate_db(date_of_birth)      
 
         # if date_of_birth == "":
         #     date_of_birth = easy_ocr(D_B)  
@@ -350,8 +396,11 @@ async def create_upload_file(file: UploadFile = File(...)):
             expiry_date = validate_ed(expiry_date)   
         if expiry_date == "":
             # E_D = increase_brightness(E_D, value=100)
-            expiry_date = ocr_sections(E_D)
-            expiry_date = validate_ed(expiry_date)      
+            expiry_date = pyocr_sections(E_D)
+            expiry_date = validate_ed(expiry_date)
+        if expiry_date == "":
+            expiry_date = keras_ocr_sections(E_D)
+            expiry_date = validate_ed(expiry_date)          
         # if expiry_date == "":
         #     expiry_date = easy_ocr(E_D)
         #     expiry_date = validate_ed(expiry_date)    
