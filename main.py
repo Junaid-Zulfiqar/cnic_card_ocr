@@ -84,7 +84,7 @@ def hsv_ocr_sections(section):
 
 
 def ocr_sections(section):
-    # section = cv2.cvtColor(section, cv2.COLOR_BGR2GRAY)
+    section = cv2.cvtColor(section, cv2.COLOR_BGR2GRAY)
     custom_config = r'--oem 3 --psm 6'
     ocr_result = pytesseract.image_to_string(section, config=custom_config)
     ocr_result = ocr_result.replace("\n\f","")
