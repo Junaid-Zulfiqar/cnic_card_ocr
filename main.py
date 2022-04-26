@@ -155,6 +155,7 @@ def delete_extra_files():
 
 def validate_name(name_text):
     name_text = name_text.lower().replace("name","")
+    name_text = name_text.lower().replace("\f","")
     name_text = name_text.lower().replace("lame","")
     name_text = name_text.lower().replace("ame","")
     name_text = name_text.lower().replace("wame","")
@@ -162,7 +163,7 @@ def validate_name(name_text):
         name_text = name_text.split("\n")
         name_text = name_text[1]
     name_text = re.sub(r"[-()\"‘#/@;:<>{}`+=~|.!?,“]", "", name_text)
-    if len(name_text) > 21:
+    if len(name_text) > 21 or len(name_text) < 4:
         name_text = ""
     return name_text
 
@@ -179,12 +180,13 @@ def validate_cnic(cnic_data):
 def validate_fn(father_name):
     father_name = re.sub(r"[-()\"\'‘#/@;:<>{}`+=~|.!?,“]", "", father_name)
     father_name = father_name.lower().replace("name","")
+    father_name = father_name.lower().replace("\f","")
     father_name = father_name.lower().replace("father name","")
     father_name = father_name.lower().replace("2","Z")
     if "\n" in father_name:
         father_name = father_name.split("\n")
         father_name = father_name[1]
-    if len(father_name) > 21:
+    if len(father_name) > 21 or len(father_name) < 4:
         father_name = ""
     return father_name
 
@@ -241,6 +243,9 @@ async def create_upload_file(file: UploadFile = File(...)):
         img = cv2.rotate(img, cv2.ROTATE_90_CLOCKWISE)
         img = cv2.rotate(img, cv2.ROTATE_180)
     img_resize = cv2.resize(img,(600,480))
+    img_resize_12 = cv2.resize(img,(1200,800))
+    gray_12 = img_resize_12
+
 
     gray = img_resize    
     interpreter = tf.lite.Interpreter(model_path="card_ocr_model.tflite")
@@ -269,6 +274,12 @@ async def create_upload_file(file: UploadFile = File(...)):
         cnic_no = gray[360:406,165:308]
         D_B = gray[360:406,310:430]
         E_D = gray[420:465,310:430]
+        name_12 = gray_12[190:256, 295:724]
+        f_name_12 = gray_12[350:420, 295:724]
+        cnic_no_12 = gray_12[605:681,295:585]
+        D_B_12 = gray_12[591:681,589:794]
+        E_D_12 = gray_12[688:773,589:794]
+
 
         #name
         name_text = ocr_sections(name)
@@ -277,9 +288,20 @@ async def create_upload_file(file: UploadFile = File(...)):
             name_text = hsv_ocr_sections(name) 
             name_text = validate_name(name_text)
         if name_text == "":
-            name = increase_brightness(name, value=100)
-            name_text = ocr_sections(name)
+            name_b = increase_brightness(name, value=100)
+            name_text = ocr_sections(name_b)
             name_text = validate_name(name_text)
+        if name_text == "":
+            name_text = ocr_sections(name_12)
+            name_text = validate_name(name_text)
+        if name_text == "":
+            name_text = hsv_ocr_sections(name_12) 
+            name_text = validate_name(name_text)
+        if name_text == "":
+            name_b = increase_brightness(name_12, value=100)
+            name_text = ocr_sections(name_b)
+            name_text = validate_name(name_text)
+
 
     
         # if name_text == "":
@@ -296,6 +318,16 @@ async def create_upload_file(file: UploadFile = File(...)):
             f_name = increase_brightness(f_name, value=100)
             father_name = ocr_sections(f_name)
             father_name = validate_fn(father_name)  
+        if father_name == "":
+            father_name = ocr_sections(f_name_12)
+            father_name = validate_fn(father_name)        
+        if father_name== "":
+            father_name = hsv_ocr_sections(f_name_12)
+            father_name = validate_fn(father_name)
+        if father_name == "":
+            f_name_b = increase_brightness(f_name_12, value=100)
+            father_name = ocr_sections(f_name_12)
+            father_name = validate_fn(father_name)
         # if father_name == "":
         #     father_name = easy_ocr(f_name)
         #     father_name = validate_fn(father_name)
@@ -314,7 +346,21 @@ async def create_upload_file(file: UploadFile = File(...)):
         if cnic == "":
             # cnic_no = increase_brightness(cnic_no, value=100)
             cnic = pyocr_sections(cnic_no)
+            cnic = validate_cnic(cnic) 
+        if cnic == "":
+            cnic_data = ocr_sections(cnic_no_12)
+            cnic = validate_cnic(cnic_data)
+        if cnic == "":
+            cnic = hsv_ocr_sections(cnic_no_12)
+            cnic = validate_cnic(cnic)
+        if cnic == "":
+            cnic_no_12_b = increase_brightness(cnic_no_12, value=100)
+            cnic = ocr_sections(cnic_no_12_b)
             cnic = validate_cnic(cnic)    
+        if cnic == "":
+            # cnic_no_12 = increase_brightness(cnic_no_12, value=100)
+            cnic = pyocr_sections(cnic_no_12)
+            cnic = validate_cnic(cnic)     
                
         # if cnic == "":
         #     cnic = easy_ocr(cnic_no)
@@ -327,12 +373,26 @@ async def create_upload_file(file: UploadFile = File(...)):
             date_of_birth = hsv_ocr_sections(D_B)  
             date_of_birth = validate_db(date_of_birth)
         if date_of_birth == "":
-            D_B = increase_brightness(D_B, value=100)
-            date_of_birth = ocr_sections(D_B)
+            D_B_b = increase_brightness(D_B, value=100)
+            date_of_birth = ocr_sections(D_B_b)
             date_of_birth = validate_db(date_of_birth)    
         if date_of_birth == "":
             date_of_birth = pyocr_sections(D_B)
+            date_of_birth = validate_db(date_of_birth)
+        if date_of_birth == "":
+            date_of_birth = ocr_sections(D_B_12)
+            date_of_birth = validate_db(date_of_birth)
+        if date_of_birth == "":
+            date_of_birth = hsv_ocr_sections(D_B_12)  
+            date_of_birth = validate_db(date_of_birth)
+        if date_of_birth == "":
+            D_B_12_b = increase_brightness(D_B_12, value=100)
+            date_of_birth = ocr_sections(D_B_12_b)
             date_of_birth = validate_db(date_of_birth)    
+        if date_of_birth == "":
+            date_of_birth = pyocr_sections(D_B_12)
+            date_of_birth = validate_db(date_of_birth) 
+
 
         # if date_of_birth == "":
         #     date_of_birth = easy_ocr(D_B)  
@@ -343,15 +403,28 @@ async def create_upload_file(file: UploadFile = File(...)):
         expiry_date = validate_ed(expiry_date)    
         if expiry_date == "":
             expiry_date = hsv_ocr_sections(E_D)
+            expiry_date = validate_ed(expiry_date)  
+        if expiry_date == "":
+            E_D_b = increase_brightness(E_D, value=100)
+            expiry_date = ocr_sections(E_D_b)
+            expiry_date = validate_ed(expiry_date) 
+        if expiry_date == "":
+            expiry_date = pyocr_sections(E_D)
+            expiry_date = validate_ed(expiry_date)      
+        if expiry_date == "":
+            expiry_date = ocr_sections(E_D_12)
+            expiry_date = validate_ed(expiry_date)    
+        if expiry_date == "":
+            expiry_date = hsv_ocr_sections(E_D_12)
             expiry_date = validate_ed(expiry_date)
         if expiry_date == "":
-            E_D = increase_brightness(E_D, value=100)
-            expiry_date = ocr_sections(E_D)
-            expiry_date = validate_ed(expiry_date)   
+            E_D_12_b = increase_brightness(E_D_12, value=100)
+            expiry_date = ocr_sections(E_D_12_b)
+            expiry_date = validate_ed(expiry_date)  
         if expiry_date == "":
-            # E_D = increase_brightness(E_D, value=100)
-            expiry_date = ocr_sections(E_D)
-            expiry_date = validate_ed(expiry_date)      
+            expiry_date = pyocr_sections(E_D_12)
+            expiry_date = validate_ed(expiry_date)
+
         # if expiry_date == "":
         #     expiry_date = easy_ocr(E_D)
         #     expiry_date = validate_ed(expiry_date)    
