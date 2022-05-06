@@ -151,8 +151,10 @@ async def create_upload_file(file: UploadFile = File(...)):
             date = matches.group(0)
             dates.append(date)
         date_of_birth = dates[0]
+        date_of_birth = date_of_birth.replace(".", "-")
         print(f"date of birth: {date_of_birth}")
         date_of_expiry = dates[-1]
+        date_of_expiry = date_of_expiry.replace(".", "-")
         print(f"date of expiry: {date_of_expiry}")  
         
 
@@ -160,7 +162,7 @@ async def create_upload_file(file: UploadFile = File(...)):
 
         return {
             "name":username,
-            "father_name":father_name,
+              "father_name":father_name,
             "cnic_no":cnic,
             "date_of_birth":date_of_birth,
             "expiry_date":date_of_expiry
