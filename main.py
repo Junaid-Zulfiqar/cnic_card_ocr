@@ -162,7 +162,7 @@ async def create_upload_file(file: UploadFile = File(...)):
 
         return {
             "name":username,
-              "father_name":father_name,
+            "father_name":father_name,
             "cnic_no":cnic,
             "date_of_birth":date_of_birth,
             "expiry_date":date_of_expiry
