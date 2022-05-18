@@ -62,7 +62,7 @@ async def create_upload_file(response: Response,file: UploadFile = File(...)):
         img = cv2.rotate(img, cv2.ROTATE_90_CLOCKWISE)
         img = cv2.rotate(img, cv2.ROTATE_180)
     
-    interpreter = tf.lite.Interpreter(model_path="card_ocr_model.tflite")
+    interpreter = tf.lite.Interpreter(model_path="card_ocr_model_3.tflite")
     interpreter.allocate_tensors()
 
     input_details = interpreter.get_input_details()
@@ -79,68 +79,89 @@ async def create_upload_file(response: Response,file: UploadFile = File(...)):
     output_data = interpreter.get_tensor(output_details[0]['index'])
     print(output_data[0])
     print(f"Label: {output_data[0].argmax()}")
-    labels = ['back', 'front', 'sim_back', 'sim_front']
+    labels = ['back','back_uae','front','front_uae', 'sim_back', 'sim_front']
     predicted_label = output_data[0].max()
     print(predicted_label)
-    output_label = labels[int(output_data[0].argmax())]
+    print(labels[int(output_data[0].argmax())])
     if predicted_label > 0.7:
-        if output_label == 'sim_front':
-            print(labels[int(output_data[0].argmax())])
-            subscription_key = "e9675160b2fb424988da9558ff23d440"
-            endpoint = "https://im-cnic-scan.cognitiveservices.azure.com/"
 
-            computervision_client = ComputerVisionClient(endpoint, CognitiveServicesCredentials(subscription_key))
-            print("===== Read File - remote =====")
-            # Get an image with text
+        subscription_key = "e9675160b2fb424988da9558ff23d440"
+        endpoint = "https://im-cnic-scan.cognitiveservices.azure.com/"
 
-            # Call API with URL and raw response (allows you to get the operation location)
-            read_image_path = f"files/{file.filename}"
-            # Open the image
-            read_image = open(read_image_path, "rb")
+        computervision_client = ComputerVisionClient(endpoint, CognitiveServicesCredentials(subscription_key))
+        print("===== Read File - remote =====")
+        # Get an image with text
 
-            # Call API with image and raw response (allows you to get the operation location)
-            read_response = computervision_client.read_in_stream(read_image, raw=True)
-            # Get the operation location (URL with ID as last appendage)
-            read_operation_location = read_response.headers["Operation-Location"]
-            # Grab the ID from the URL
-            operation_id = read_operation_location.split("/")[-1]
+        # Call API with URL and raw response (allows you to get the operation location)
+        read_image_path = f"files/{file.filename}"
+        # Open the image
+        read_image = open(read_image_path, "rb")
 
-            # Call the "GET" API and wait for it to retrieve the results 
-            while True:
-                read_result = computervision_client.get_read_result(operation_id)
-                if read_result.status not in ['notStarted', 'running']:
-                    break
-                time.sleep(1)
+        # Call API with image and raw response (allows you to get the operation location)
+        read_response = computervision_client.read_in_stream(read_image, raw=True)
+        # Get the operation location (URL with ID as last appendage)
+        read_operation_location = read_response.headers["Operation-Location"]
+        # Grab the ID from the URL
+        operation_id = read_operation_location.split("/")[-1]
 
-            # Print the detected text, line by line
-            # print(read_result)
-            total_results = []
-            if read_result.status == OperationStatusCodes.succeeded:
-                for text_result in read_result.analyze_result.read_results:
-                    for line in text_result.lines:
-                        # print(line.text)
-                        total_results.append(line.text)
-                        # print(line.bounding_box)
-            results = "\n".join(total_results)
+        # Call the "GET" API and wait for it to retrieve the results 
+        while True:
+            read_result = computervision_client.get_read_result(operation_id)
+            if read_result.status not in ['notStarted', 'running']:
+                break
+            time.sleep(1)
+
+        # Print the detected text, line by line
+        # print(read_result)
+        total_results = []
+        if read_result.status == OperationStatusCodes.succeeded:
+            for text_result in read_result.analyze_result.read_results:
+                for line in text_result.lines:
+                    # print(line.text)
+                    total_results.append(line.text)
+                    # print(line.bounding_box)
+        results = "\n".join(total_results)
+        print(results)
+        output_label = labels[int(output_data[0].argmax())]
+        if output_label == 'sim_front' or  output_label == 'front_uae':
             father_name = ""
             username = ""
             date_of_birth = ""
             date_of_expiry = ""
             # Name
-            names = []
-            name = ""
-            name_reg = re.compile(r'(?:Name)(?:\s+|)(\w+.*)') 
-            match = name_reg.finditer(results)
-            for matches in match:
-                name = matches.group(1) 
-                names.append(name)  
-            if len(names) > 1:  
-                username = names[0]
-                print(f"name: {username}")
-                father_name = names[-1]
-                print(f"father name: {father_name}")
+            if output_label == 'front_uae':
+                username = ""
+                father_name = ""
+                name_reg = re.compile(r'(?:Name:)(?:\s+|)(\w+.*)') 
+                match = name_reg.finditer(results)
+                for matches in match:
+                    username = matches.group(1) 
+
+            else:    
+                names = []
+                name = ""
+                name_reg = re.compile(r'(?:Name)(?:\s+|)(\w+.*)') 
+                match = name_reg.finditer(results)
+                for matches in match:
+                    name = matches.group(1) 
+                    names.append(name)  
+                if len(names) > 1:  
+                    username = names[0]
+                    print(f"name: {username}")
+                    father_name = names[-1]
+                    print(f"father name: {father_name}")
+                if username == "":
+                    username = ""
+                    father_name = ""
+                    name_reg = re.compile(r'(?:Name)(?:\s+|)(\w+.*)') 
+                    match = name_reg.finditer(results)
+                    for matches in match:
+                        username = matches.group(1) 
             #cnic
-            cnic_reg = re.compile(r'((?:\d{5}|\d{4})(?:-|\s+|)\d{7}(?:-|\s+|)(?:\d|))')
+            if output_label == 'front_uae':
+                cnic_reg = re.compile(r'((?:\d{3}|\d{4})(?:-|\s+|)\d{4}(?:-|\s+|)\d{7}(?:-|\s+|)(?:\d|))')
+            else:    
+                cnic_reg = re.compile(r'((?:\d{5}|\d{4})(?:-|\s+|)\d{7}(?:-|\s+|)(?:\d|))')
             match = cnic_reg.finditer(results)
             cnic = ""
             for matches in match:
@@ -148,7 +169,7 @@ async def create_upload_file(response: Response,file: UploadFile = File(...)):
             print(cnic) 
             #dates
             dates = []
-            date_reg = re.compile(r'(\d{2}[.]\d{2}[.]\d{4})')
+            date_reg = re.compile(r'(\d{2}[./]\d{2}[./]\d{4})')
             match = date_reg.finditer(results)
             date = ""
             for matches in match:
@@ -221,6 +242,38 @@ async def create_upload_file(response: Response,file: UploadFile = File(...)):
                 "father_name":father_name,
                 "cnic_no":cnic,
                 "date_of_birth":date_of_birth,
+            }
+        elif output_label == 'back_uae':
+            # occupation
+            occupation = ""
+            occupation_reg = re.compile(r'(?:Occupation:)(?:\s+|)(\w+.*)') 
+            match = occupation_reg.finditer(results)
+            for matches in match:
+                occupation = matches.group(1) 
+            print(occupation) 
+
+            # Employer
+            employer = ""
+            employer_reg = re.compile(r'(?:Employer(?:\s+|):)(?:\s+|)(\w+.*)') 
+            match = employer_reg.finditer(results)
+            for matches in match:
+                employer = matches.group(1) 
+            print(employer)
+
+            # issue_place
+            issue_place = ""
+            issue_place_reg = re.compile(r'(?:Issuing Place:)(?:\s+|)(\w+.*)') 
+            match = issue_place_reg.finditer(results)
+            for matches in match:
+                issue_place = matches.group(1) 
+            print(issue_place)
+
+            # delete_extra_files()
+
+            return {
+                "occupation":occupation,
+                "employer":employer,
+                "issuing_place":issue_place,
             }
     else:
         delete_extra_files()
